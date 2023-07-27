@@ -1,24 +1,49 @@
-#include <iostream>
 #include <cmath>
-#include <Eigen/Dense>
+#include <iostream>
 
-auto main() -> int
+#include <Eigen/Eigenvalues>
+#include <Eigen/Sparse>
+
+#include <tbb/tbb.h>
+
+double harmonic_potential(double x)
 {
-  constexpr std::size_t N_POINTS = 3;
-  Eigen::MatrixXd matrix(N_POINTS, N_POINTS);
-  for (int i{}; i != N_POINTS; ++i) {
-    for (auto j : {i - 1, i, i + 1}) {
-      if (j != -1 && j != N_POINTS) {
-        matrix(i, j) = 1.f;
-      }
+  return 0.5f * std::pow(x, 2);
+}
+
+int main()
+{
+  constexpr int n_points = 10;  // dimension
+  constexpr double x_min = -5.f;
+  constexpr double x_max = 5.f;
+  constexpr double h = (x_max - x_min) / n_points;    // step
+  constexpr double k = 1.f / (2.f * std::pow(h, 2));  // wave number
+
+  Eigen::SparseMatrix<double> hamiltonian(n_points, n_points);
+
+  // fill matrix in parallel on cpu
+  tbb::parallel_for(0, n_points, [&](int i) {
+    hamiltonian.insert(i, i) = 2 * k + harmonic_potential(x_min + (i + 1) * h);
+    if (i > 0) {
+      hamiltonian.insert(i - 1, i) = -k;
     }
-  }
-  std::cout << matrix << '\n';
-  Eigen::EigenSolver<Eigen::MatrixXd> solver(matrix);
-  Eigen::VectorXd eigenvalues = solver.eigenvalues().real();
-  Eigen::MatrixXd eigenvectors = solver.eigenvectors().real();
-  std::cout << "Eigenvalues:\n"
-            << eigenvalues << std::endl;
-  std::cout << "Eigenvectors:\n"
-            << eigenvectors << std::endl;
+    if (i < n_points - 1) {
+      hamiltonian.insert(i + 1, i) = -k;
+    }
+  });
+
+  // make sparse the hamiltonian
+  hamiltonian.makeCompressed();
+
+  std::cout << hamiltonian << '\n';
+
+  // find eigenvalues (energy levels) and eigenvactors (wavefunction)
+  Eigen::SelfAdjointEigenSolver<Eigen::SparseMatrix<double>> solver(hamiltonian);
+  Eigen::VectorXd energy_eigenvalues = solver.eigenvalues();
+  Eigen::MatrixXd wavefunction = solver.eigenvectors();
+  Eigen::SparseMatrix<double> wavefunction_sparse = wavefunction.sparseView();
+
+  std::cout << energy_eigenvalues << '\n';
+
+  std::cout << wavefunction_sparse << '\n';
 }

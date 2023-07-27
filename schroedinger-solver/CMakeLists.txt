@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 3.16)
 
 project(schroedinger-solver VERSION 0.1)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_CPPCHECK "cppcheck")
 
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -fconcepts")
-string(APPEND CMAKE_CXX_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
+string(APPEND CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer")
 string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
 
 include(ExternalProject)
@@ -32,3 +32,6 @@ include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
 
 add_executable(schroedinger-solver "main.cpp")
 add_dependencies(schroedinger-solver eigen)
+
+find_package(TBB REQUIRED)
+target_link_libraries(schroedinger-solver PRIVATE TBB::tbb)
