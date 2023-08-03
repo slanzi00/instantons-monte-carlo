@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_CPPCHECK "cppcheck")
 
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -fconcepts")
-string(APPEND CMAKE_CXX_FLAGS_DEBUG "-fno-omit-frame-pointer")
+string(APPEND CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -fconcepts")
+string(APPEND CMAKE_CXX_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
 string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
 
 include(ExternalProject)
