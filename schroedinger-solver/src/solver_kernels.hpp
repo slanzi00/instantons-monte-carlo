@@ -14,9 +14,14 @@ namespace solver {
 
 namespace serial {
 
-void create_hamiltonian(Eigen::MatrixXd& hamiltonian,
-                        Potential const& potential,
-                        InitialConditions& ic);
+void fill_hamiltonian(Eigen::MatrixXd& hamiltonian,
+                      Potential const& potential,
+                      InitialConditions& ic);
+
+void calculate_matrix_elements(Eigen::VectorXd& n_pole,
+                               Eigen::MatrixXd const& wavefunctions,
+                               uint8_t position_pow,
+                               InitialConditions& ic);
 
 };  // namespace serial
 
