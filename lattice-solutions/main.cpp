@@ -4,11 +4,11 @@
 #include <random>
 
 template <size_t array_size>
-std::array<float, array_size> generate_random_array(std::mt19937& rng, float x_min, float x_max)
+std::array<double, array_size> generate_random_array(std::mt19937& rng, double x_min, double x_max)
 {
   static_assert(array_size > 0, "Array dimension must be > 0");
-  std::uniform_real_distribution<float> dist(x_min, x_max);
-  std::array<float, array_size> random_array{};
+  std::uniform_real_distribution<double> dist(x_min, x_max);
+  std::array<double, array_size> random_array{};
   for (size_t i = 0; i != array_size; ++i) {
     random_array[i] = dist(rng);
   }
@@ -16,36 +16,38 @@ std::array<float, array_size> generate_random_array(std::mt19937& rng, float x_m
 }
 
 template <int n_updates, class Array, class Potential>
-std::array<float, n_updates> evolve_using_metropolis(std::mt19937& rng,
-                                                     Array& positions,
-                                                     Potential const& potential,
-                                                     float lattice_spacing)
+void evolve_using_metropolis(std::mt19937& rng,
+                             Array& positions,
+                             Potential const& potential,
+                             double lattice_spacing)
 {
   auto calculate_action = [&] {
-    float action = 0.;
-    for (size_t i = 1; i != positions.size(); ++i) {
-      action += 1. / (4. * lattice_spacing) * std::pow(positions[i] - positions[i - 1], 2) +
-                lattice_spacing * potential(positions[i]);
+    double action = 0.;
+    for (size_t i = 1; i != positions.size() - 1; ++i) {
+      double x_pm{(positions[i] - positions[i - 1]) / lattice_spacing};
+      double x_pp{(positions[i + 1] - positions[i]) / lattice_spacing};
+      double kinetic{(1. / 4.) * (std::pow(x_pm, 2) + std::pow(x_pp, 2))};
+      action += lattice_spacing * (kinetic + potential(positions[i]));
     }
     return action;
   };
 
-  std::normal_distribution<float> gaussian_step(0., .5);
-  std::array<float, n_updates> x_vals{};
-
+  std::normal_distribution<double> gaussian_step(0., 0.5);
+  int a = 0;
+  int r = 0;
   for (int i = 0; i != n_updates; ++i) {
-    float initial_action = calculate_action();
-    float dx = gaussian_step(rng);
-    size_t random_index = std::uniform_int_distribution<size_t>(0, positions.size() - 1)(rng);
-    positions[random_index] += dx;
-    float final_action = calculate_action();
-    if (std::exp(-(final_action - initial_action)) > 1) {
-      positions[random_index] -= dx;
+    for (size_t j = 1; j != positions.size() - 1; ++j) {
+      double initial_action = calculate_action();
+      double dx = gaussian_step(rng);
+      positions[j] += dx;
+      double final_action = calculate_action();
+      std::uniform_real_distribution<double> probability(0., 1.);
+      if (std::exp(-(final_action - initial_action)) < 1 &&
+          std::exp(-(final_action - initial_action)) < probability(rng)) {
+        positions[j] -= dx;
+      }
     }
-    auto x_val = (1. / 800.) * std::accumulate(positions.begin(), positions.end(), 0.);
-    x_vals[i] = x_val;
   }
-  return x_vals;
 }
 
 auto main() -> int
@@ -53,9 +55,9 @@ auto main() -> int
   std::random_device rd;
   std::mt19937 rng(rd());
   auto p{generate_random_array<800>(rng, -1.4, 1.4)};
-  auto potential = [](float x) { return std::pow(std::pow(x, 2) - std::pow(1.4, 2), 2); };
-  auto a = evolve_using_metropolis<10000>(rng, p, potential, 0.05);
-  for (auto const i : a) {
+  auto potential = [](double x) { return std::pow(std::pow(x, 2) - std::pow(1.4, 2), 2); };
+  evolve_using_metropolis<100000>(rng, p, potential, 0.05);
+  for (auto const i : p) {
     std::cout << i << '\n';
   }
 }
