@@ -1,0 +1,12 @@
+reset
+fname = "correlations.txt"
+
+set autoscale xfixmin 
+set autoscale xfixmax
+
+set style data linespoints
+
+plot fname using 1:2 index 0 lt rgb "blue" title "<x(0)x(t)>", \
+     fname using 1:2 index 1 lt rgb "green" title "<x(0)^2x(t)^2>", \
+     fname using 1:2 index 2 lt rgb "red" title "<x(0)^3x(t)^3>"
+ 
