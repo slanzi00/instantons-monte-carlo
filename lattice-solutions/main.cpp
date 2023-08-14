@@ -29,7 +29,8 @@ void evolve_using_metropolis(std::mt19937& rng,
                              std::array<float,30>& x2_cor,
                              std::array<float,30>& x2_cor_square,
                              std::array<float,30>& x3_cor,
-                             std::array<float,30>& x3_cor_square)                            
+                             std::array<float,30>& x3_cor_square 
+                             )                            
 {
   auto calculate_action = [&]() {
     float action = 0.f;
@@ -44,8 +45,7 @@ void evolve_using_metropolis(std::mt19937& rng,
     return action;
   };
 
-  std::normal_distribution<float> gaussian_step(0.f, 0.5f);
-  
+  std::normal_distribution<float> gaussian_step(0.f, 0.5f);  
   for (int i = 0; i != n_updates; ++i) {
     //
     //simultaneus random generation
@@ -94,11 +94,24 @@ void evolve_using_metropolis(std::mt19937& rng,
       }
     }   
   } //end of MH
-  //averages for correlation functions 
-  std::transform(x_cor.begin(), x_cor.end(), x_cor.begin(), [&](auto i) { return i / ( (n_updates * number_meas) * 1.f); });
-  std::transform(x2_cor.begin(), x2_cor.end(), x2_cor.begin(), [&](auto i) { return i / ( (n_updates * number_meas) * 1.f); });
-  std::transform(x3_cor.begin(), x3_cor.end(), x3_cor.begin(), [&](auto i) { return i / ( (n_updates * number_meas) * 1.f); });
 }
+
+template <int ncorr, class Array>
+void mean_and_errors (                    
+                      Array& x_cor,
+                      Array& x_cor_square,
+                      Array& x_cor_err
+                      ) 
+{
+  for (size_t i = 0; i != x_cor_err.size(); ++i){
+    x_cor[i] = x_cor[i] / static_cast<float>(ncorr);
+    float del2 = ( x_cor_square[i] / static_cast<float>(std::pow(ncorr,2)) ) 
+                - ( static_cast<float>(std::pow(x_cor[i],2)) / static_cast<float>(ncorr) );
+    if (del2 < 0.f)del2 = 0.f;
+    x_cor_err[i] = std::sqrt(del2);
+  }
+}   
+
 
 template <int n_updates, class Array, class Potential>
 void cooling(std::mt19937& rng,
@@ -143,15 +156,21 @@ auto main() -> int
   int constexpr np = 30;
   //
   //number measurements per sweep
-  int constexpr nm = 10;
+  int constexpr nm = 6;
   //      
-  std::array<float,np> xc{}; 
-  std::array<float,np> xc_sq{}; 
-  std::array<float,np> x2{}; 
-  std::array<float,np> x2_sq{}; 
-  std::array<float,np> x3{}; 
-  std::array<float,np> x3_sq{};
+  std::array<float,np> xc{};
+  std::array<float,np> x2{};
+  std::array<float,np> x3{};
+  std::array<float,np> xc_sq{};
+  std::array<float,np> x2_sq{};
+  std::array<float,np> x3_sq{}; 
+  std::array<float,np> xc_er{};
+  std::array<float,np> x2_er{};
+  std::array<float,np> x3_er{};
   evolve_using_metropolis<10000>(rng, c, potential, 0.05, np, nm, xc, xc_sq, x2, x2_sq, x3, x3_sq);
+  mean_and_errors<10000*nm>(xc, xc_sq, xc_er);
+  mean_and_errors<10000*nm>(x2, x2_sq, x2_er);
+  mean_and_errors<10000*nm>(x3, x3_sq, x3_er);
   std::ofstream fdata;
   fdata.open("points.txt");
   for (auto const i : c) {
@@ -161,21 +180,21 @@ auto main() -> int
   std::ofstream cordata;
   cordata.open("correlations.txt");
   for (int i=0; i != np; ++i) {
-    cordata << i * 0.05 <<"  "<< xc[i] << '\n';
+    cordata << i * 0.05 <<"  "<< xc[i] <<"  "<< xc_er[i] << '\n';
   }
 
   cordata << '\n';
   cordata << '\n';
 
   for (int i=0; i != np; ++i) {
-    cordata << i * 0.05 <<"  "<< x2[i] << '\n';
+    cordata << i * 0.05 <<"  "<< x2[i] <<"  "<< x2_er[i] << '\n';
   }
 
   cordata << '\n';
   cordata << '\n';
 
   for (int i=0; i != np; ++i) {
-    cordata << i * 0.05 <<"  "<< x3[i] << '\n';
-  }
+    cordata << i * 0.05 <<"  "<< x3[i] <<"  "<< x3_er[i] << '\n';
 
+}
 }
