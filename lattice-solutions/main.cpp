@@ -161,10 +161,10 @@ auto main() -> int
   //
   int constexpr monte_carlo_sweeps = 10000;
   //number of points in which cor functions are evaluated
-  int constexpr np = 50;
+  int constexpr np = 22;
   //
   //number measurements per sweep
-  int constexpr nm = 5;
+  int constexpr nm = 10;
   //
   std::array<double,np> xc{};
   std::array<double,np> x2{};
@@ -199,7 +199,7 @@ auto main() -> int
   cordata.open("correlations.txt");
   
   //log derivative xc
-  for (size_t i = 0; i != np -1; ++i) {
+  for (size_t i = 0; i != np-1; ++i) {
     double dx = (xc[i] - xc[i+1]) / xc[i] / spacing;
     double dxe2 = std::pow(xc_er[i+1]/xc[i],2) + std::pow((xc_er[i]*xc[i+1]) / std::pow(xc[i],2),2);
     double dxe = std::sqrt(dxe2) / spacing;
@@ -210,23 +210,25 @@ auto main() -> int
   cordata << '\n';
 
   //log derivative x2
-  for (size_t i = 0; i != np -1; ++i) {
-    double x2_sub = x2[i] - x2[np];
-    double x2_sub_next = x2[i+1] - x2[np];
-    double error_sub_next = std::sqrt(std::pow(x2_er[i+1],2) + std::pow(x2_er[np],2));
-    double error_sub = std::sqrt(std::pow(x2_er[i],2) + std::pow(x2_er[np],2));
+  for (size_t i = 0; i != np-1; ++i) {
+    double x2_sub = x2[i] - x2[np-1];
+    double x2_sub_next = x2[i+1] - x2[np-1];
+    //std::cout << x2[i] <<" - "<< x2[np-1] <<"  =  "<< x2_sub <<'\n';
+    double error_sub_next = std::sqrt(std::pow(x2_er[i+1],2) + std::pow(x2_er[np-1],2));
+    double error_sub = std::sqrt(std::pow(x2_er[i],2) + std::pow(x2_er[np-1],2));
 
     double dx = (x2_sub - x2_sub_next) / x2_sub / spacing;
     double dxe2 = std::pow(error_sub_next / x2_sub,2) + std::pow((error_sub*x2_sub_next) / std::pow(x2_sub,2),2);
-    double dxe = std::sqrt(dxe2) / spacing;
-    cordata << i * spacing <<"  "<< x2[i] <<"  "<< x2_er[i] <<"  "<< dx <<"  "<< dxe << '\n';
+    double dxe = std::sqrt(dxe2)/spacing;
+
+    cordata << i * spacing <<"  "<< x2[i] <<"  "<< x2_er[i] <<"  "<< dx <<"  "<<  dxe << '\n';
   }
 
   cordata << '\n';
   cordata << '\n';
   
   //log derivative x3
-  for (size_t i = 0; i != np -1; ++i) {
+  for (size_t i = 0; i != np-1; ++i) {
     double dx = (x3[i] - x3[i+1]) / x3[i] / spacing;
     double dxe2 = std::pow(x3_er[i+1] / x3[i],2) + std::pow((x3_er[i]*x3[i+1]) / std::pow(x3[i],2),2);
     double dxe = std::sqrt(dxe2) / spacing;
