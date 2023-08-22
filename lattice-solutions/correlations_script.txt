@@ -1,12 +1,30 @@
 reset
-fname = "correlations.txt"
+aname = "correlations.txt"
+bname = "correlations_cooled.txt"
+
 
 set autoscale xfixmin 
 set autoscale xfixmax
+set yrange[0:8]
 
 set style data linespoints
+set multiplot layout 2,2 columns
 
-plot fname using 1:2 index 0 lt rgb "blue" title "<x(0)x(t)>", \
-     fname using 1:2 index 1 lt rgb "green" title "<x(0)^2x(t)^2>", \
-     fname using 1:2 index 2 lt rgb "red" title "<x(0)^3x(t)^3>"
+plot aname using 1:2:3 index 0 lt rgb "blue" t "<x(0)x(t)>" w yerr, \
+     aname using 1:2:3 index 1 lt rgb "red" t "<x(0)^2x(t)^2>" w yerr, \
+     aname using 1:2:3 index 2 lt rgb "green" t "<x(0)^3x(t)^3>" w yerr
+
+plot bname using 1:2:3 index 0 lt rgb "blue" t "<x(0)x(t)> cooled" w yerr, \
+     bname using 1:2:3 index 1 lt rgb "red" t "<x(0)^2x(t)^2> cooled" w yerr, \
+     bname using 1:2:3 index 2 lt rgb "green" t "<x(0)^3x(t)^3> cooled" w yerr
+
+plot aname using 1:4:5 index 0 lt rgb "blue" t "<x(0)x(t)>" w yerr, \
+     aname using 1:4:5 index 1 lt rgb "red" t "<x(0)^2x(t)^2>" w yerr, \
+     aname using 1:4:5 index 2 lt rgb "green" t "<x(0)^3x(t)^3>" w yerr
+
+plot bname using 1:4:5 index 0 lt rgb "blue" t "<x(0)x(t)> cooled" w yerr, \
+     bname using 1:4:5 index 1 lt rgb "red" t "<x(0)^2x(t)^2> cooled" w yerr, \
+     bname using 1:4:5 index 2 lt rgb "green" t "<x(0)^3x(t)^3> cooled" w yerr
+
+unset multiplot
  
