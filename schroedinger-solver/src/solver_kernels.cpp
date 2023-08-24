@@ -9,15 +9,23 @@ void fill_hamiltonian(Eigen::MatrixXd& hamiltonian,
                       InitialConditions& ic)
 {
   assert(hamiltonian.rows() == hamiltonian.cols());
-  for (int i{0}; i != ic.n_points; ++i) {
-    hamiltonian(i, i) = 2 * ic.get_kinetic() + potential(ic.x_min + i * ic.get_step());
-    if (i > 0) {
-      hamiltonian(i - 1, i) = -ic.get_kinetic();
-    }
-    if (i < ic.n_points - 1) {
-      hamiltonian(i + 1, i) = -ic.get_kinetic();
-    }
+
+  Eigen::MatrixXd kinetic_A = Eigen::MatrixXd::Zero(ic.n_points, ic.n_points);
+  kinetic_A.diagonal(0).setConstant(2. / (2. * std::pow(ic.get_step(), 2)));
+  kinetic_A.diagonal(1).setConstant(-1. / (2. * std::pow(ic.get_step(), 2)));
+  kinetic_A.diagonal(-1).setConstant(-1. / (2. * std::pow(ic.get_step(), 2)));
+
+  Eigen::MatrixXd kinetic_B = Eigen::MatrixXd::Zero(ic.n_points, ic.n_points);
+  kinetic_B.diagonal(0).setConstant(-5. / 12.);
+  kinetic_B.diagonal(1).setConstant(-1. / 24.);
+  kinetic_B.diagonal(-1).setConstant(-1. / 24.);
+
+  Eigen::MatrixXd potential_V = Eigen::MatrixXd::Zero(ic.n_points, ic.n_points);
+  for (int i{}; i != ic.n_points; ++i) {
+    potential_V(i, i) = potential(ic.x_min + i * ic.get_step());
   }
+
+  hamiltonian = kinetic_B.inverse() * kinetic_A + potential_V;
 }
 
 void calculate_matrix_elements(Eigen::VectorXd& n_pole,
