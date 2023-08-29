@@ -1,13 +1,8 @@
 reset
 aname = "ground_state_probability.txt"
-bname = "ground_state_probability_cooled.txt"
 set xrange [-2.5:2.5]
 
 set style histogram rowstacked gap 0
 set style fill solid 0.5 border lt -1
 
-set multiplot layout 2,1 columns
-
 plot aname using 1:2 smooth freq with boxes title "probability density"
-
-plot bname using 1:2 smooth freq with boxes title "probability density cooled configuration"

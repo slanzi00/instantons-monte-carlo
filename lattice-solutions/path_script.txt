@@ -8,5 +8,5 @@ set autoscale xfixmax
 set style data linespoints
 
 plot aname with lines lt rgb "black" title "path", \
-     bname with lines lt rgb "green" title "cooled path"
+     bname with lines lw 3 lt rgb "green" title "cooled path"
 
