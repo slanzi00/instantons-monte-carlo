@@ -4,22 +4,78 @@
 #include <random>
 #include <fstream>
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 
 template <size_t array_size>
 std::array<double, array_size> generate_random_array(std::mt19937& rng, double x_min, double x_max)
 {
-  static_assert(array_size > 0, "Array dimension must be > 0");
-  std::uniform_real_distribution<double> dist(x_min, x_max);
-  std::array<double, array_size> random_array{};
-  for (size_t i = 0; i != array_size; ++i) {
-    random_array[i] = dist(rng);
-  }
-  return random_array;
+    static_assert(array_size > 0, "Array dimension must be > 0");
+    std::uniform_real_distribution<double> dist(x_min, x_max);
+    std::array<double, array_size> random_array{};
+    for (double& value : random_array) {
+        value = dist(rng);
+    }
+    return random_array;
 }
 
-template <int n_updates, int unconsidered_configurations, int thermalization_steps, int c_updates, int unconsidered_cool, class Array, class Potential, class Histo, class Correlator>
-void evolve_using_metropolis(std::mt19937& rng,
+template <typename Array>
+constexpr double calculate_kinetic(const Array& positions, size_t i, const size_t positions_size, double lattice_spacing) {
+    size_t prev = (i + positions_size - 1) % (positions_size);
+    size_t next = (i + 1) % (positions_size);
+    double x_pm = (positions[i] - positions[prev]) / lattice_spacing;
+    double x_pp = (positions[next] - positions[i]) / lattice_spacing;
+    return 0.25 * (std::pow(x_pm, 2) + std::pow(x_pp, 2));
+}
+
+template <typename Array, typename Potential>
+double calculate_action(const Array& positions, Potential& potential, const size_t& positions_size, double lattice_spacing) {
+    double action = 0.;
+    for (size_t i = 0; i < positions_size; ++i) {
+        double kinetic = calculate_kinetic(positions, i, positions_size, lattice_spacing);
+        action += lattice_spacing * (kinetic + potential(positions[i]));
+    }
+    return action;
+}
+
+/*//could be an idea
+template <typename Array>
+void evolve_positions(std::mt19937& rng, Array& positions, Potential& potential, const size_t& positions_size, double lattice_spacing,
+                      double probability_threshold) {
+    std::normal_distribution<double> gaussian_step(0.0, 0.5);
+    std::uniform_real_distribution<double> probability(0., 1.);
+    for (double& position : positions) {
+        double initial_action = calculate_action(positions, potential, positions_size, lattice_spacing);
+        double dx = gaussian_step(rng);
+        position += dx;
+        double final_action = calculate_action(positions, potential, positions_size, lattice_spacing);
+        double acceptance_prob = std::exp(initial_action - final_action);
+        if (acceptance_prob <= 1.0 && acceptance_prob <= probability(rng)) {
+            pos -= dx;
+        }
+    } 
+}
+*/
+template <typename Histo, typename Array>
+void filling_histo(Histo& histo_array, Array& positions, int number_bins, double max_value) {
+    double bin_w = (2. * max_value) / static_cast<double>(number_bins);
+    for (const double& position : positions) {
+        int pos = std::max(std::floor((position + max_value)/bin_w),0.);
+        histo_array[pos] += 1.0;
+    }
+}
+
+template <typename T>
+void calculate_statistics(T& dataset, T& square_dataset, T& errors_dataset, const double& number_correlator) {
+    for (size_t i = 0; i != dataset.size(); ++i){ // means and errors of corr functions
+    dataset[i] /= number_correlator;
+    square_dataset[i] = (square_dataset[i] / std::pow(number_correlator,2)) - (std::pow(dataset[i], 2) / number_correlator);
+    errors_dataset[i] = std::sqrt(std::max(square_dataset[i], 0.));
+  }
+}
+
+template <int n_updates, int unconsidered_configurations, int thermalization_steps, int c_updates, 
+          int unconsidered_cool, class Array, class Potential, class Histo, class Correlator>
+void evolve_using_metropolis(std::mt19937& rng,  
                              Array& positions,
                              Array& positions_cool,
                              Potential const& potential,
@@ -29,7 +85,7 @@ void evolve_using_metropolis(std::mt19937& rng,
                              int const number_bins,
                              double max_value,
                              Histo& histo_array,
-                             Histo& histo_array_cool,
+                             Histo& histo_cool,
                              Correlator& x_cor,
                              Correlator& x2_cor,
                              Correlator& x3_cor,
@@ -44,56 +100,12 @@ void evolve_using_metropolis(std::mt19937& rng,
                              Correlator& x3_err_cool
                              )                            
 {
-  auto calculate_action = [&]() {
-    double action = 0.;
-    for (size_t i = 0; i != positions.size(); ++i) {
-      double next = (i + positions.size() - 1) % (positions.size()); //boundary conditions
-      double prev = (i + 1) % (positions.size());
-      double x_pm{(positions[i] - positions[prev]) / lattice_spacing};
-      double x_pp{(positions[next] - positions[i]) / lattice_spacing};
-      double kinetic{(1. / 4.) * (std::pow(x_pm, 2) + std::pow(x_pp, 2))};
-      action += lattice_spacing * (kinetic + potential(positions[i]));
-    }
-    return action;
-  };
-
-  auto calculate_action_cool = [&]() {
-    double action = 0.;
-    for (size_t i = 0; i != positions_cool.size(); ++i) {
-      double next = (i + positions_cool.size() - 1) % (positions_cool.size()); //boundary conditions
-      double prev = (i + 1) % (positions_cool.size());
-      double x_pm{(positions_cool[i] - positions_cool[prev]) / lattice_spacing};
-      double x_pp{(positions_cool[next] - positions_cool[i]) / lattice_spacing};
-      double kinetic{(1. / 4.) * (std::pow(x_pm, 2) + std::pow(x_pp, 2))};
-      action += lattice_spacing * (kinetic + potential(positions_cool[i]));
-    }
-    return action;
-  };
-
-  auto filling_histo = [&]() {
-    double bin_w = (2. * max_value) / (number_bins * 1.);
-    for(int i=0; i != positions.size(); ++i) {
-        int pos = floor((positions[i] + max_value)/bin_w);
-        if(pos < 0)pos = 0;
-        if(pos > number_bins-1)pos = number_bins-1;
-        histo_array[pos] += 1.;
-    }
-  };
-
-  auto filling_histo_cool = [&]() {
-    double bin_w = (2. * max_value) / (number_bins * 1.);
-    for(int i=0; i != positions_cool.size(); ++i) {
-        int pos = floor((positions_cool[i] + max_value)/bin_w);
-        if(pos < 0)pos = 0;
-        if(pos > number_bins-1)pos = number_bins-1;
-        histo_array_cool[pos] += 1.;
-    }
-  };
-
   std::normal_distribution<double> gaussian_step(0., 0.5);
   std::uniform_real_distribution<double> probability(0., 1.);
-  int const ncor = (n_updates / unconsidered_configurations) * number_meas;
-  int const ncor_cool = (n_updates / (unconsidered_configurations * unconsidered_cool)) * number_meas;
+  const double ncor = (n_updates / unconsidered_configurations) * number_meas;
+  const double number_cool_config = n_updates / (unconsidered_configurations * unconsidered_cool);
+  const double ncor_cool = number_cool_config * number_meas;
+  const size_t positions_size = positions.size();
   Correlator x_cor_square{};
   Correlator x2_cor_square{};
   Correlator x3_cor_square{};
@@ -101,110 +113,85 @@ void evolve_using_metropolis(std::mt19937& rng,
   Correlator x2_square_cool{};
   Correlator x3_square_cool{};
   
-  for (int i = 0; i != thermalization_steps + n_updates + 1; ++i) { //Monte Carlo
-    for (size_t j = 0; j != positions.size(); ++j) {
-      double initial_action = calculate_action();
-      double dx = gaussian_step(rng);
-      positions[j] += dx;
-      double final_action = calculate_action();
-      if (std::exp(-(final_action - initial_action)) <= 1. &&
-          std::exp(-(final_action - initial_action)) <= (probability(rng))) {
-        positions[j] -= dx;
-      }
-      filling_histo(); 
-    }
-    if (i > thermalization_steps && (i % unconsidered_configurations) == 0) //consider only certain configurations after certain number of steps
-    {   
-      for (size_t k = 0; k != number_meas; ++k) {   // correlation functions
-        int ip0 = floor((800. - number_points) * probability(rng));   //specify site visiting order
-        for (size_t l = 0; l != number_points; ++l) {    
-          double xcor = positions[ip0] * positions[ip0 + l];
-          x_cor[l] += xcor;
-          x_cor_square[l] += std::pow(xcor,2);
-          x2_cor[l] += std::pow(xcor,2);
-          x2_cor_square[l] += std::pow(xcor,4);
-          x3_cor[l] += std::pow(xcor,3);
-          x3_cor_square[l] += std::pow(xcor,6);
+  for (int m = 0; m != thermalization_steps + n_updates + 1; ++ m) { 
+    //Monte Carlo
+    for (auto& pos : positions) {
+        double initial_action = calculate_action(positions, potential, positions_size, lattice_spacing);
+        double dx = gaussian_step(rng);
+        pos += dx;
+        double final_action = calculate_action(positions, potential, positions_size, lattice_spacing);
+        double acceptance_prob = std::exp(initial_action - final_action);
+        if (acceptance_prob <= 1.0 && acceptance_prob <= probability(rng)) {
+            pos -= dx;
         }
-      }
+        
+    } 
+       filling_histo(histo_array, positions, number_bins, max_value);
+     if (m > thermalization_steps && (m % unconsidered_configurations) == 0) {
+        for (size_t k = 0; k != number_meas; ++k) {   // correlation functions
+            int ip0 = floor((positions_size - number_points) * probability(rng));
+            for (size_t l = 0; l != number_points; ++l) {
+                double xcor = positions[ip0] * positions[ip0 + l];
+                x_cor[l] += xcor;
+                x_cor_square[l] += std::pow(xcor,2);
+                x2_cor[l] += std::pow(xcor,2);
+                x2_cor_square[l] += std::pow(xcor,4);
+                x3_cor[l] += std::pow(xcor,3);
+                x3_cor_square[l] += std::pow(xcor,6);
+            }
+        }
     }//end if
-    if (i > thermalization_steps && (i % (unconsidered_configurations*unconsidered_cool)) == 0)
+
+    if (m > thermalization_steps && (m % (unconsidered_configurations * unconsidered_cool)) == 0)
     { 
-      std::copy(positions.begin(), positions.end(), positions_cool.begin()); 
-      for (int l = 0; l != c_updates; ++l) { //cooling
-        for (size_t j = 0; j != positions_cool.size(); ++j) {
-          double initial_action = calculate_action_cool();
+      
+      std::copy(positions.begin(), positions.end(), positions_cool.begin());
+
+      for (int l = 0; l != c_updates; ++l) { //cooling and modify nin
+        for (size_t j = 0; j != positions_size; ++j) {
+          double initial_action = calculate_action(positions_cool, potential, positions_size, lattice_spacing);
           double dx = gaussian_step(rng);
-          positions_cool[j] += dx;
-          double final_action = calculate_action_cool();
+          double& position = positions_cool[j];
+          position += dx;
+          double final_action = calculate_action(positions_cool, potential, positions_size, lattice_spacing);
           if (final_action >= initial_action) {
-          positions_cool[j] -= dx;
+              position -= dx;
           }
         } 
       }
-      for (size_t k = 0; k != number_meas; ++k) {   // correlation functions
-        int ip0 = floor((800. - number_points) * probability(rng));   //specify site visiting order
-        for (size_t l = 0; l != number_points; ++l) {    
-          double xcor = positions_cool[ip0] * positions_cool[ip0 + l];
-          x_cool[l] += xcor;
-          x_square_cool[l] += std::pow(xcor,2);
-          x2_cool[l] += std::pow(xcor,2);
-          x2_square_cool[l] += std::pow(xcor,4);
-          x3_cool[l] += std::pow(xcor,3);
-          x3_square_cool[l] += std::pow(xcor,6);
+      filling_histo(histo_cool, positions_cool, number_bins, max_value);
+      for (size_t k = 0; k != number_meas; ++k) {   // correlation functions after cooling 
+          int ip0 = floor((positions_size - number_points) * probability(rng));   
+          for (size_t l = 0; l != number_points; ++l) {    
+            double xcor = positions_cool[ip0] * positions_cool[ip0 + l];
+            x_cool[l] += xcor;
+            x_square_cool[l] += std::pow(xcor,2);
+            x2_cool[l] += std::pow(xcor,2);
+            x2_square_cool[l] += std::pow(xcor,4);
+            x3_cool[l] += std::pow(xcor,3);
+            x3_square_cool[l] += std::pow(xcor,6);
         }
       }
     }//end if
   } //end Monte Carlo
- 
-  std::cout <<"ncor ="<< (ncor*1.) << '\n';
-  std::cout <<"ncor_cool ="<< (ncor_cool*1.) << '\n';
-  for (size_t i = 0; i != x_cor_err.size(); ++i){ // means and errors of corr functions
-    x_cor[i] = x_cor[i]/(ncor*1.);
-    double del2 = (x_cor_square[i] / std::pow((ncor*1.),2)) - (std::pow(x_cor[i],2) / (ncor*1.));
-    if (del2 < 0.)del2 = 0.;
-    x_cor_err[i] = std::sqrt(del2);
-  }
-  for (size_t i = 0; i != x2_cor_err.size(); ++i){
-    x2_cor[i] = x2_cor[i]/(ncor*1.);
-    double del2 = (x2_cor_square[i] / std::pow((ncor*1.),2)) - (std::pow(x2_cor[i],2) / (ncor*1.));
-    if (del2 < 0.)del2 = 0.;
-    x2_cor_err[i] = std::sqrt(del2);
-  }
-  for (size_t i = 0; i != x3_cor_err.size(); ++i){
-    x3_cor[i] = x3_cor[i]/(ncor*1.);
-    double del2 = (x3_cor_square[i] / std::pow((ncor*1.),2)) - (std::pow(x3_cor[i],2) / (ncor*1.));
-    if (del2 < 0.)del2 = 0.;
-    x3_cor_err[i] = std::sqrt(del2);
-  }
+  
+  calculate_statistics(x_cor, x_cor_square, x_cor_err, ncor);
+  calculate_statistics(x2_cor, x2_cor_square, x2_cor_err, ncor);
+  calculate_statistics(x3_cor, x3_cor_square, x3_cor_err, ncor);
 
-  for (size_t i = 0; i != x_err_cool.size(); ++i){ // means and errors of cooled corr functions
-    x_cool[i] = x_cool[i]/(ncor_cool*1.);
-    double del2 = (x_square_cool[i] / std::pow((ncor_cool*1.),2)) - (std::pow(x_cool[i],2) / (ncor_cool*1.));
-    if (del2 < 0.)del2 = 0.;
-    x_err_cool[i] = std::sqrt(del2);
-  }
-  for (size_t i = 0; i != x2_err_cool.size(); ++i){
-    x2_cool[i] = x2_cool[i]/(ncor_cool*1.);
-    double del2 = (x2_square_cool[i] / std::pow((ncor_cool*1.),2)) - (std::pow(x2_cool[i],2) / (ncor_cool*1.));
-    if (del2 < 0.)del2 = 0.;
-    x2_err_cool[i] = std::sqrt(del2);
-  }
-  for (size_t i = 0; i != x3_err_cool.size(); ++i){
-    x3_cool[i] = x3_cool[i]/(ncor_cool*1.);
-    double del2 = (x3_square_cool[i] / std::pow((ncor_cool*1.),2)) - (std::pow(x3_cool[i],2) / (ncor_cool*1.));
-    if (del2 < 0.)del2 = 0.;
-    x3_err_cool[i] = std::sqrt(del2);
-  }
+  calculate_statistics(x_cool, x_square_cool, x_err_cool, ncor_cool);
+  calculate_statistics(x2_cool, x2_square_cool, x2_err_cool, ncor_cool);
+  calculate_statistics(x3_cool, x3_square_cool, x3_err_cool, ncor_cool);
 }
 
 template <class Correlator>
 void print_corr_and_log (std::ofstream& ofile, Correlator& x, Correlator& x_err, double spacing) {
   for (size_t i = 0; i != x.size()-1; ++i) {
-    double dx = (x[i] - x[i+1]) / x[i] / spacing;
-    double dxe2 = std::pow(x_err[i+1]/x[i],2) + std::pow((x_err[i]*x[i+1]) / std::pow(x[i],2),2);
+    double& position = x[i];
+    double dx = (position - x[i+1]) / position / spacing;
+    double dxe2 = std::pow(x_err[i+1] / position,2) + std::pow((x_err[i]*x[i+1]) / (position * position),2);
     double dxe = std::sqrt(dxe2) / spacing;
-    ofile << i * spacing <<"  "<< x[i] <<"  "<< x_err[i] <<"  "<< dx <<"  "<< dxe << '\n';
+    ofile << i * spacing <<"  "<< position <<"  "<< x_err[i] <<"  "<< dx <<"  "<< dxe << '\n';
   }
 }
 
@@ -248,7 +235,7 @@ auto main() -> int
   //
   int constexpr equilibration = 200; //first configurations to discard for equilibration purpose, before start
   //
-  int constexpr cooling_sweeps = 400;
+  int constexpr cooling_sweeps = 660;
   //
   int constexpr take_every_cool = 20; //configurations to discard between every cooleing procedure
   //
