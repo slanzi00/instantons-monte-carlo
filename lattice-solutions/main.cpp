@@ -4,7 +4,6 @@
 #include <random>
 #include <fstream>
 #include <algorithm>
-#include <cassert>
 
 template <size_t array_size>
 std::array<double, array_size> generate_random_array(std::mt19937& rng, double x_min, double x_max)
@@ -19,20 +18,21 @@ std::array<double, array_size> generate_random_array(std::mt19937& rng, double x
 }
 
 template <typename Array>
-constexpr double calculate_kinetic(const Array& positions, size_t i, const size_t positions_size, double lattice_spacing) {
+constexpr double calculate_kinetic(const Array& positions, size_t i, const size_t positions_size, const double& current, double lattice_spacing) {
     size_t prev = (i + positions_size - 1) % (positions_size);
     size_t next = (i + 1) % (positions_size);
-    double x_pm = (positions[i] - positions[prev]) / lattice_spacing;
-    double x_pp = (positions[next] - positions[i]) / lattice_spacing;
+    double x_pm = (current - positions[prev]) / lattice_spacing;
+    double x_pp = (positions[next] - current) / lattice_spacing;
     return 0.25 * (std::pow(x_pm, 2) + std::pow(x_pp, 2));
 }
 
 template <typename Array, typename Potential>
-double calculate_action(const Array& positions, Potential& potential, const size_t& positions_size, double lattice_spacing) {
+double calculate_action(const Array& positions, Potential& potential, const size_t& positions_size, const double& lattice_spacing) {
     double action = 0.;
-    for (size_t i = 0; i < positions_size; ++i) {
-        double kinetic = calculate_kinetic(positions, i, positions_size, lattice_spacing);
-        action += lattice_spacing * (kinetic + potential(positions[i]));
+    for (size_t i=0; i != positions_size; ++i) {
+        const double& current = positions[i];
+        double kinetic = calculate_kinetic(positions, i, positions_size, current, lattice_spacing);
+        action += lattice_spacing * (kinetic + potential(current));
     }
     return action;
 }
@@ -55,13 +55,10 @@ void evolve_positions(std::mt19937& rng, Array& positions, Potential& potential,
     } 
 }
 */
-template <typename Histo, typename Array>
-void filling_histo(Histo& histo_array, Array& positions, int number_bins, double max_value) {
-    double bin_w = (2. * max_value) / static_cast<double>(number_bins);
-    for (const double& position : positions) {
-        int pos = std::max(std::floor((position + max_value)/bin_w),0.);
+template <typename Histo>
+void filling_histo(Histo& histo_array, double& current_position, const double& bin_width, const double& max_value) {
+        int pos = std::max(floor((current_position + max_value)/bin_width), 0.);
         histo_array[pos] += 1.0;
-    }
 }
 
 template <typename T>
@@ -80,10 +77,10 @@ void evolve_using_metropolis(std::mt19937& rng,
                              Array& positions_cool,
                              Potential const& potential,
                              double lattice_spacing,
-                             int const number_points,
-                             int const number_meas,
-                             int const number_bins,
-                             double max_value,
+                             double const& number_points,
+                             double const& number_meas,
+                             double const& bin_width,
+                             double const& max_value,
                              Histo& histo_array,
                              Histo& histo_cool,
                              Correlator& x_cor,
@@ -115,23 +112,26 @@ void evolve_using_metropolis(std::mt19937& rng,
   
   for (int m = 0; m != thermalization_steps + n_updates + 1; ++ m) { 
     //Monte Carlo
-    for (auto& pos : positions) {
+    for (auto& current_position : positions) {
         double initial_action = calculate_action(positions, potential, positions_size, lattice_spacing);
         double dx = gaussian_step(rng);
-        pos += dx;
+        current_position += dx;
         double final_action = calculate_action(positions, potential, positions_size, lattice_spacing);
         double acceptance_prob = std::exp(initial_action - final_action);
         if (acceptance_prob <= 1.0 && acceptance_prob <= probability(rng)) {
-            pos -= dx;
+            current_position -= dx;
         }
-        
+        filling_histo(histo_array, current_position, bin_width, max_value);
     } 
-       filling_histo(histo_array, positions, number_bins, max_value);
-     if (m > thermalization_steps && (m % unconsidered_configurations) == 0) {
+       
+     if (m > thermalization_steps && (m % unconsidered_configurations) == 0) 
+     {
+
         for (size_t k = 0; k != number_meas; ++k) {   // correlation functions
-            int ip0 = floor((positions_size - number_points) * probability(rng));
+            size_t start = std::floor((positions_size - number_points) * probability(rng));
             for (size_t l = 0; l != number_points; ++l) {
-                double xcor = positions[ip0] * positions[ip0 + l];
+                size_t next = (start + l + 1) % (positions_size);
+                double xcor = positions[start] * positions[next];
                 x_cor[l] += xcor;
                 x_cor_square[l] += std::pow(xcor,2);
                 x2_cor[l] += std::pow(xcor,2);
@@ -147,23 +147,26 @@ void evolve_using_metropolis(std::mt19937& rng,
       
       std::copy(positions.begin(), positions.end(), positions_cool.begin());
 
-      for (int l = 0; l != c_updates; ++l) { //cooling and modify nin
-        for (size_t j = 0; j != positions_size; ++j) {
+      for (int l = 0; l != c_updates; ++l) { 
+        //cooling
+        for (auto& current_cool : positions_cool) {
           double initial_action = calculate_action(positions_cool, potential, positions_size, lattice_spacing);
           double dx = gaussian_step(rng);
-          double& position = positions_cool[j];
-          position += dx;
+          current_cool += dx;
           double final_action = calculate_action(positions_cool, potential, positions_size, lattice_spacing);
           if (final_action >= initial_action) {
-              position -= dx;
+              current_cool -= dx;
           }
+          filling_histo(histo_cool, current_cool, bin_width, max_value);
         } 
       }
-      filling_histo(histo_cool, positions_cool, number_bins, max_value);
-      for (size_t k = 0; k != number_meas; ++k) {   // correlation functions after cooling 
-          int ip0 = floor((positions_size - number_points) * probability(rng));   
-          for (size_t l = 0; l != number_points; ++l) {    
-            double xcor = positions_cool[ip0] * positions_cool[ip0 + l];
+      
+      for (size_t k = 0; k != number_meas; ++k) {   
+        // correlation functions after cooling 
+          int start = std::floor((positions_size - number_points) * probability(rng));   
+          for (size_t l = 0; l != number_points; ++l) {  
+            size_t next = (start + l + 1) % (positions_size);
+            double xcor = positions_cool[start] * positions_cool[next];
             x_cool[l] += xcor;
             x_square_cool[l] += std::pow(xcor,2);
             x2_cool[l] += std::pow(xcor,2);
@@ -212,7 +215,7 @@ void print_corr_and_log_subtracted (std::ofstream& ofile, Correlator& x, Correla
 
 template <class Array>
 void print_probability_density (std::ofstream& ofile, Array& h, int nbins, double max_val, double bin_w) {
-  double xnorm;
+  double xnorm = 0;
   for(int i=0; i != nbins; ++i) {
     xnorm += (h[i] * bin_w);
   }
@@ -229,23 +232,23 @@ auto main() -> int
   std::mt19937 rng(rd());
   double constexpr spacing = 0.05;
   //
-  int constexpr total_sweeps = 20000; //total number of monte carlo sweeps
+  int constexpr total_sweeps = 2e4; //total number of monte carlo sweeps
   //
   int constexpr take_every = 2; //sweep to discard between every configuration used for measurements
   //
-  int constexpr equilibration = 200; //first configurations to discard for equilibration purpose, before start
+  int constexpr equilibration = 50; //first configurations to discard for equilibration purpose, before start
   //
   int constexpr cooling_sweeps = 660;
   //
-  int constexpr take_every_cool = 20; //configurations to discard between every cooleing procedure
+  int constexpr take_every_cool = 30; //configurations to discard between every cooleing procedure
   //
   int constexpr np = 30; //number of points in which cor functions are evaluated
   //
   int constexpr nm = 400; //number measurements per sweep
   //
-  auto potential = [](double x) { return std::pow(std::pow(x,2) - std::pow(1.4,2),2); };
-  auto c{generate_random_array<800>(rng, -1.4, 1.4)}; // disordered (hot) start
-  std::array<double,800>cool{};
+  auto potential = [](const double& x) { return std::pow(std::pow(x,2) - std::pow(1.4,2),2); };
+  auto c{generate_random_array<1480>(rng, -1.4, 1.4)}; // disordered (hot) start
+  std::array<double,1480>cool{};
   std::array<double,np> xc{};
   std::array<double,np> x2{};
   std::array<double,np> x3{};
@@ -263,13 +266,13 @@ auto main() -> int
   //
   double constexpr max_val = 2.5; //max x-range value for histogram
   //
-  double constexpr bin_w = (2.*max_val) / (nbins*1.); //bin width
+  double constexpr bin_w = (2.* max_val) / static_cast<double>(nbins); //bin width
   //
   std::array<double,nbins> h{};
   std::array<double,nbins> h_c{};
 
   evolve_using_metropolis<total_sweeps, take_every, equilibration, cooling_sweeps, take_every_cool>(rng, c, cool, potential, spacing, 
-                          np, nm, nbins, max_val, h, h_c, xc, x2, x3, xc_er, x2_er, x3_er, xc_c, x2_c, x3_c, xc_er_c, x2_er_c, x3_er_c);                          
+                          np, nm, bin_w, max_val, h, h_c, xc, x2, x3, xc_er, x2_er, x3_er, xc_c, x2_c, x3_c, xc_er_c, x2_er_c, x3_er_c);                          
   
   std::ofstream fdata;
   fdata.open("points.txt");
