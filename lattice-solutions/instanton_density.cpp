@@ -4,7 +4,6 @@
 #include <random>
 #include <fstream>
 #include <algorithm>
-#include <assert.h>
 
 template <size_t array_size>
 std::array<double, array_size> generate_random_array(std::mt19937& rng, double x_min, double x_max)
@@ -19,11 +18,11 @@ std::array<double, array_size> generate_random_array(std::mt19937& rng, double x
 }
 
 template <typename Array>
-constexpr double calculate_kinetic(const Array& positions, size_t i, const size_t positions_size, double lattice_spacing) {
+constexpr double calculate_kinetic(const Array& positions, size_t i, const size_t positions_size, const double& current_position, double lattice_spacing) {
     size_t prev = (i + positions_size - 1) % (positions_size);
     size_t next = (i + 1) % (positions_size);
-    double x_pm = (positions[i] - positions[prev]) / lattice_spacing;
-    double x_pp = (positions[next] - positions[i]) / lattice_spacing;
+    double x_pm = (current_position - positions[prev]) / lattice_spacing;
+    double x_pp = (positions[next] - current_position) / lattice_spacing;
     return 0.25 * (std::pow(x_pm, 2) + std::pow(x_pp, 2));
 }
 
@@ -31,8 +30,9 @@ template <typename Array, typename Potential>
 double calculate_action(const Array& positions, Potential& potential, const size_t& positions_size, double lattice_spacing) {
     double action = 0.;
     for (size_t i = 0; i < positions_size; ++i) {
-        double kinetic = calculate_kinetic(positions, i, positions_size, lattice_spacing);
-        action += lattice_spacing * (kinetic + potential(positions[i]));
+        const double& current_position = positions[i];
+        double kinetic = calculate_kinetic(positions, i, positions_size, current_position, lattice_spacing);
+        action += lattice_spacing * (kinetic + potential(current_position));
     }
     return action;
 }
@@ -147,21 +147,21 @@ auto main() -> int
 {
   std::random_device rd;
   std::mt19937 rng(rd());
-  double constexpr eta = 1.6;
+  double constexpr eta = 1.4;
   //
   double constexpr spacing = 0.05;
   //
-  int constexpr total_sweeps = 2e4; //total number of monte carlo sweeps 
+  int constexpr total_sweeps = 8e3; //total number of monte carlo sweeps 
   //                          2e5
   int constexpr take_every = 2; //sweep to discard between every configuration used for measurements
   //
   int constexpr equilibration = 200; //first configurations to discard for equilibration purpose, before start
   //
-  int constexpr cooling_sweeps = 600;
+  int constexpr cooling_sweeps = 660;
   //                            660
-  int constexpr take_every_cool = 25; //configurations to discard between every cooleing procedure
+  int constexpr take_every_cool = 15; //configurations to discard between every cooleing procedure
   //                             250   
-  auto potential = [](double x) { return std::pow(std::pow(x,2) - std::pow(eta,2),2); };
+  auto potential = [](const double& x) { return std::pow(std::pow(x,2) - std::pow(eta,2),2); };
   auto c{generate_random_array<800>(rng, -eta, eta)}; // disordered (hot) start
   std::array<double,800>cool{};
   std::array<double,cooling_sweeps> nin{};
@@ -178,9 +178,9 @@ auto main() -> int
   double constexpr instanton_density_twoloops = instanton_density_oneloop * (1. - 71./(72.*s0));
   
   for(size_t i=0; i != nin.size(); ++i) {
-    std::cout << i <<" "<< nin[i] <<" "<< nin_er[i] <<" "<< 
-                instanton_density_oneloop * (spacing * 800) <<" "<< 
-                instanton_density_twoloops* (spacing * 800) <<'\n';
+    std::cout << i <<" "<< nin[i] / (spacing * 800.) <<" "<< nin_er[i] / (spacing * 800.) <<" "<< 
+                instanton_density_oneloop  <<" "<< 
+                instanton_density_twoloops  <<'\n';
   }
   std::cout << '\n' << '\n';
   
