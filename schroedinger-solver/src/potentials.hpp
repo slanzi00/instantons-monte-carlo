@@ -1,31 +1,24 @@
 #ifndef POTENTIALS_HPP
 #define POTENTIALS_HPP
 
+#include <array>
 #include <cmath>
 
-namespace solver {
+#include <Eigen/Core>
 
-class Potential
+template <uint16_t degree>
+struct PolynomialPotential
 {
- public:
-  virtual double operator()(double x) const;
+  Eigen::Matrix<double, degree + 1, 1> coefficients;
+
+  double operator()(double x)
+  {
+    double result = 0.;
+    for (int pow{degree}; pow >= 0; --pow) {
+      result += coefficients(pow) * std::pow(x, pow);
+    }
+    return result;
+  }
 };
-
-class HarmonicPotential : public Potential
-{
- public:
-  double operator()(double x) const override;
-};
-
-class AnharmonicPotential : public Potential
-{
-  double m_eta;
-
- public:
-  AnharmonicPotential(double eta);
-  double operator()(double x) const override;
-};
-
-};  // namespace solver
 
 #endif
