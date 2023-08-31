@@ -70,14 +70,17 @@ class SchroedingerSolver
 
   Eigen::VectorXd correlator(Eigen::VectorXd const& multipole, Eigen::VectorXd const& eigenvalues)
   {
-    int n_tau = 250;
+    size_t n_tau = 200;
+    double tau_max = 1.5;
+    double tau = 0.;
     Eigen::VectorXd correlator = Eigen::VectorXd::Zero(n_tau);
-    for (int tau{0}; tau != n_tau; ++tau) {
+    for (size_t i{0}; i != n_tau; ++i) {
       double result = 0.;
       for (int n{0}; n != eigenvalues.size(); ++n) {
         result += multipole(n) * std::exp(-(eigenvalues(n) - eigenvalues(0)) * tau);
       }
-      correlator(tau) = result;
+      correlator(i) = result;
+      tau += (tau_max / static_cast<double>(n_tau));
     }
     return correlator;
   }

@@ -24,7 +24,7 @@ class InitialConditions
 
  public:
   InitialConditions(PolynomialPotential<polynomial_potential_degree> potential, double max_energy)
-      :  m_max_energy{max_energy}, m_step{1. / (10. * std::sqrt(2. * m_max_energy))}, m_potential{std::move(potential)}
+      :  m_max_energy{max_energy}, m_step{1. / (std::sqrt(m_max_energy))}, m_potential{std::move(potential)}
   {
     auto coeff = m_potential.coefficients;
     coeff(0) -= m_max_energy;
@@ -55,7 +55,7 @@ class InitialConditions
 
   double kinetic()
   {
-    return 1. / (2. * std::pow(m_step, 2));
+    return 1. / (std::pow(m_step, 2));
   }
 
   double potential(double x)

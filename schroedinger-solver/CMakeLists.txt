@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(schroedinger-solver VERSION 0.1)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_CPPCHECK "cppcheck")
@@ -19,10 +19,9 @@ set(EIGEN_INCLUDE_DIR ${EIGEN_INSTALL_DIR})
 
 set(SOURCES
     src/main.cpp
-    src/solver_kernels.cpp
-    src/solver_init_conditions.cpp
+    src/solver.cpp
+    src/initial_conditions.cpp
     src/potentials.cpp
-    src/timer.cpp
 )
 
 ExternalProject_Add(
@@ -38,10 +37,10 @@ ExternalProject_Add(
 )
 include_directories(SYSTEM ${EIGEN_INCLUDE_DIR})
 
-find_package(OpenMP REQUIRED)
+# find_package(OpenMP REQUIRED)
 
 add_executable(schroedinger-solver ${SOURCES})
 add_dependencies(schroedinger-solver eigen)
-target_link_libraries(schroedinger-solver PRIVATE OpenMP::OpenMP_CXX)
+# target_link_libraries(schroedinger-solver PRIVATE OpenMP::OpenMP_CXX)
 
 

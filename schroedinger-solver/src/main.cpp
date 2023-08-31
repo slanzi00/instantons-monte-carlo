@@ -11,7 +11,7 @@ int main()
   PolynomialPotential<4> anharmonic_potential;
   anharmonic_potential.coefficients << std::pow(eta, 4), 0., -2. * std::pow(eta, 2), 0., 1.;
 
-  InitialConditions ic{anharmonic_potential, 10.};
+  InitialConditions ic{anharmonic_potential, 100.};
 
   SchroedingerSolver solver{ic};
   auto positions = solver.get_positions();
@@ -20,6 +20,7 @@ int main()
   auto dipole = solver.position_matrix_elements<1>(wavefunctions);
   auto quadrupole = solver.position_matrix_elements<2>(wavefunctions);
   auto exapole = solver.position_matrix_elements<3>(wavefunctions);
+
   auto correlator_1 = solver.correlator(dipole, energies);
   auto correlator_2 = solver.correlator(quadrupole, energies);
   auto correlator_3 = solver.correlator(exapole, energies);
@@ -29,8 +30,8 @@ int main()
   //           << "step: " << ic.get_step() << '\n';
 
   // for (int i = 0; i != ic.n_points(); ++i) {
-  //   std::cout << positions(i) << ' ' << wavefunctions(i, 0) << '\n';
+  //   std::cout << dipole(i) << ' ' << quadrupole(i) << ' ' << exapole(i) << '\n';
   // }
 
-  std::cout << correlator_1 << '\n';
+  std::cout << correlator_3 << '\n';
 }
