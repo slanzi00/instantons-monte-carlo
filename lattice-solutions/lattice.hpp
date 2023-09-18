@@ -41,8 +41,10 @@ struct Lattice
 
   double calculate_action(size_t position_index)
   {
-    auto x_pm = positions[position_index] - positions[position_index - 1];
-    auto x_pp = positions[position_index + 1] - positions[position_index];
+    auto prev_index = (position_index + n_points - 1) % (n_points);
+    auto next_index = (position_index + 1) % (n_points);
+    auto x_pm = positions[position_index] - positions[prev_index];
+    auto x_pp = positions[next_index] - positions[position_index];
     return (1. / (4. * m_lattice_spacing)) * (x_pm * x_pm + x_pp * x_pp) +
            m_lattice_spacing * m_potential(positions[position_index]);
   }
