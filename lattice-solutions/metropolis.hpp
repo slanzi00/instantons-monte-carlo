@@ -1,6 +1,7 @@
 #ifndef METROPOLIS_HPP
 #define METROPOLIS_HPP
 
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -8,6 +9,12 @@
 
 #include "correlators.hpp"
 #include "lattice.hpp"
+
+template <size_t lattice_points>
+using lattice_ptr = std::shared_ptr<Lattice<lattice_points>>;
+
+template <size_t correlators_points>
+using correlators_ptr = std::shared_ptr<Correlators<correlators_points>>;
 
 enum class EvolutionType { Normal, Cooling };
 
@@ -37,19 +44,22 @@ struct InstantonDensity
 template <class Histogram, size_t lattice_points, size_t correlators_points>
 class Metropolis
 {
-  std::shared_ptr<Lattice<lattice_points>> m_lattice;
-  std::shared_ptr<Correlators<correlators_points>> m_correlators;
+  lattice_ptr<lattice_points> m_lattice;
+  correlators_ptr<correlators_points> m_correlators;
+  correlators_ptr<correlators_points> m_correlators_cool;
   std::array<double, lattice_points> m_positions_storage;
   InstantonDensity m_instanton_density;
-  std::mt19937_64 m_gen;
+  std::mt19937 m_gen;
   Histogram m_histogram;
 
  public:
-  Metropolis(std::shared_ptr<Lattice<lattice_points>> lattice,
-             std::shared_ptr<Correlators<correlators_points>> correlators,
+  Metropolis(lattice_ptr<lattice_points> lattice,
+             correlators_ptr<correlators_points> correlators,
+             correlators_ptr<correlators_points> correlators_cool,
              Histogram histogram)
       : m_lattice{std::move(lattice)}
       , m_correlators{std::move(correlators)}
+      , m_correlators_cool{std::move(correlators_cool)}
       , m_positions_storage{}
       , m_gen{std::random_device{}()}
       , m_histogram{std::move(histogram)}
@@ -79,7 +89,7 @@ class Metropolis
 
   int calculate_number_instantons()
   {
-    auto result{0};
+    auto result = 0;
     for (size_t i = 0; i != m_lattice->positions.size(); ++i) {
       auto prev_index = (i + m_lattice->positions.size() - 1) % (m_lattice->positions.size());
       if (std::signbit(m_lattice->positions[prev_index]) != std::signbit(m_lattice->positions[i])) {
@@ -100,22 +110,27 @@ class Metropolis
     }
 
     for (uint64_t i_sweep = 0; i_sweep != n_sweeps; ++i_sweep) {
+      if (i_sweep % 2 == 0) {
+        m_correlators->fill_correlators(m_lattice->positions, m_gen, 400);
+      }
+      if (i_sweep % 200 == 0) {
+        m_positions_storage = m_lattice->positions;
+        for (uint32_t i_cool = 0; i_cool != n_cooling_sweeps; ++i_cool) {
+          one_sweep_monte_carlo(EvolutionType::Cooling, gaussian_step, probability);
+          m_instanton_density.n_instantons[i_cool] += calculate_number_instantons();
+          m_instanton_density.actions[i_cool] += m_lattice->calculate_complete_action();
+          if (i_cool % 2 == 0) {
+            m_correlators_cool->fill_correlators(m_lattice->positions, m_gen, 100);
+          }
+        }
+        m_lattice->positions = m_positions_storage;
+      }
       one_sweep_monte_carlo(EvolutionType::Normal, gaussian_step, probability);
-      // if (i_sweep % 2 == 0) {
-      m_correlators->fill_correlators(m_lattice->positions, m_gen, 400);
-      // }
-      // if (i_sweep % 200 == 0) {
-      //   m_positions_storage = m_lattice->positions;
-      //   for (uint32_t i_cool = 0; i_cool != n_cooling_sweeps; ++i_cool) {
-      //     m_instanton_density.n_instantons[i_cool] += calculate_number_instantons();
-      //     // m_instanton_density.actions[i_cool] += m_lattice->calculate_action(i_cool);
-      //     one_sweep_monte_carlo(EvolutionType::Cooling, gaussian_step, probability);
-      //   }
-      //   m_lattice->positions = m_positions_storage;
-      // }
     }
-
     m_correlators->normalize_correlators();
+    m_correlators->calculate_errors();
+    m_correlators_cool->normalize_correlators();
+    m_correlators_cool->calculate_errors();
   }
 
   decltype(auto) probability_histogram()
