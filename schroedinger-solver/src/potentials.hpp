@@ -14,7 +14,7 @@ struct PolynomialPotential
   double operator()(double x)
   {
     double result = 0.;
-    for (int pow{degree}; pow >= 0; --pow) {
+    for (int pow = degree; pow >= 0; --pow) {
       result += coefficients(pow) * std::pow(x, pow);
     }
     return result;

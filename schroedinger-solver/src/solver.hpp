@@ -26,7 +26,7 @@ class SchroedingerSolver
     m_hamiltonian.main_diagonal = Eigen::VectorXd::Zero(ic.n_points());
     m_hamiltonian.sub_diagonal = Eigen::VectorXd::Zero(ic.n_points() - 1);
 
-    for (int i{0}; i != ic.n_points(); ++i) {
+    for (int i = 0; i != ic.n_points(); ++i) {
       m_positions(i) = ic.x_min() + static_cast<double>(i) * ic.get_step();
       m_hamiltonian.main_diagonal(i) = 2. * ic.kinetic() + ic.potential(m_positions(i));
     }
@@ -59,8 +59,8 @@ class SchroedingerSolver
   {
     size_t num_elements = m_positions.size();
     Eigen::VectorXd n_pole = Eigen::VectorXd::Zero(num_elements);
-    for (size_t n{0}; n != num_elements; ++n) {
-      for (size_t i{0}; i != num_elements; ++i) {
+    for (size_t n = 0; n != num_elements; ++n) {
+      for (size_t i = 0; i != num_elements; ++i) {
         n_pole(n) +=
             wavefunctions(i, 0) * std::pow(m_positions(i), position_pow) * wavefunctions(i, n);
       }
@@ -68,21 +68,30 @@ class SchroedingerSolver
     return n_pole.array().pow(2);
   }
 
-  Eigen::VectorXd correlator(Eigen::VectorXd const& multipole, Eigen::VectorXd const& eigenvalues)
+  double correlator(Eigen::VectorXd const& multipole,
+                    Eigen::VectorXd const& eigenvalues,
+                    double tau)
   {
-    size_t n_tau = 200;
-    double tau_max = 1.5;
-    double tau = 0.;
-    Eigen::VectorXd correlator = Eigen::VectorXd::Zero(n_tau);
-    for (size_t i{0}; i != n_tau; ++i) {
-      double result = 0.;
-      for (int n{0}; n != eigenvalues.size(); ++n) {
-        result += multipole(n) * std::exp(-(eigenvalues(n) - eigenvalues(0)) * tau);
-      }
-      correlator(i) = result;
-      tau += (tau_max / static_cast<double>(n_tau));
+    double result = 0.;
+    for (auto n = 0; n != eigenvalues.size(); ++n) {
+      result += multipole(n) * std::exp(-(eigenvalues(n) - eigenvalues(0)) * tau);
     }
-    return correlator;
+    return result;
+  }
+
+  double log_derivative(Eigen::VectorXd const& multipole,
+                        Eigen::VectorXd const& eigenvalues,
+                        double tau,
+                        bool is_second_derivative = false)
+  {
+    double num = 0., den = 0.;
+    auto start_index = is_second_derivative ? 2 : 0;
+    for (auto n = start_index; n != eigenvalues.size(); ++n) {
+      num += (eigenvalues(n) - eigenvalues(0)) * multipole(n) *
+             std::exp(-(eigenvalues(n) - eigenvalues(0)) * tau);
+      den += multipole(n) * std::exp(-(eigenvalues(n) - eigenvalues(0)) * tau);
+    }
+    return num / den;
   }
 };
 

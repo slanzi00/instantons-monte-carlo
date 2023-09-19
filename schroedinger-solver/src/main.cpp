@@ -1,8 +1,49 @@
+#include <format>
+#include <fstream>
 #include <iostream>
 
 #include "initial_conditions.hpp"
 #include "potentials.hpp"
 #include "solver.hpp"
+
+void print_eigens_csv(auto const& positions, auto const& eigenvalues, auto const& wavefuncions)
+{
+  std::ofstream eigens_f("data/eigenvalues_eigenfunctions.csv");
+  eigens_f << "positions,eigenvalues,eigenfuntion(0),eigenfuncion(1),eigenfunction(2)\n";
+  for (auto i = 0; i != eigenvalues.size(); ++i) {
+    eigens_f << std::format("{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f}\n",
+                            positions[i],
+                            eigenvalues[i],
+                            -wavefuncions(i, 0),
+                            wavefuncions(i, 1),
+                            wavefuncions(i, 2));
+  }
+}
+
+void print_correlators_csv(auto& solver,
+                           auto const& eigenvalues,
+                           auto const& dipole,
+                           auto const& quadrupole,
+                           auto const& exapole)
+{
+  std::ofstream corr_f("data/correlators_log_derivative.csv");
+  corr_f << "time,<x(τ)x(0)>,<x(τ)²x(0)²>,<x(τ)³x(0)³>,dlog<x(τ)x(0)>/dτ,dlog<x(τ)²x(0)²>/"
+            "dτ,dlog<x(τ)³x(0)³>/dτ\n";
+  size_t n_tau = 200;
+  double tau_max = 1.5;
+  double tau = 0.;
+  for (size_t i = 0; i != n_tau; ++i) {
+    corr_f << std::format("{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f}\n",
+                          tau,
+                          solver.correlator(dipole, eigenvalues, tau),
+                          solver.correlator(quadrupole, eigenvalues, tau),
+                          solver.correlator(exapole, eigenvalues, tau),
+                          solver.log_derivative(dipole, eigenvalues, tau),
+                          solver.log_derivative(quadrupole, eigenvalues, tau, true),
+                          solver.log_derivative(exapole, eigenvalues, tau));
+    tau += tau_max / static_cast<double>(n_tau);
+  }
+}
 
 int main()
 {
@@ -11,7 +52,7 @@ int main()
   PolynomialPotential<4> anharmonic_potential;
   anharmonic_potential.coefficients << std::pow(eta, 4), 0., -2. * std::pow(eta, 2), 0., 1.;
 
-  InitialConditions ic{anharmonic_potential, 100.};
+  InitialConditions ic{anharmonic_potential, 400.};
 
   SchroedingerSolver solver{ic};
   auto positions = solver.get_positions();
@@ -21,17 +62,6 @@ int main()
   auto quadrupole = solver.position_matrix_elements<2>(wavefunctions);
   auto exapole = solver.position_matrix_elements<3>(wavefunctions);
 
-  auto correlator_1 = solver.correlator(dipole, energies);
-  auto correlator_2 = solver.correlator(quadrupole, energies);
-  auto correlator_3 = solver.correlator(exapole, energies);
-
-  // std::cout << "x limits: x_min = " << ic.x_min() << ", x_max = " << ic.x_max() << '\n'
-  //           << "# points: " << ic.n_points() << '\n'
-  //           << "step: " << ic.get_step() << '\n';
-
-  // for (int i = 0; i != ic.n_points(); ++i) {
-  //   std::cout << dipole(i) << ' ' << quadrupole(i) << ' ' << exapole(i) << '\n';
-  // }
-
-  std::cout << correlator_3 << '\n';
+  print_eigens_csv(positions, energies, wavefunctions);
+  print_correlators_csv(solver, energies, dipole, quadrupole, exapole);
 }

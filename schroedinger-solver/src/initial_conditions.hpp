@@ -23,8 +23,8 @@ class InitialConditions
   PolynomialPotential<polynomial_potential_degree> m_potential;
 
  public:
-  InitialConditions(PolynomialPotential<polynomial_potential_degree> potential, double max_energy)
-      :  m_max_energy{max_energy}, m_step{1. / (std::sqrt(m_max_energy))}, m_potential{std::move(potential)}
+  InitialConditions(PolynomialPotential<polynomial_potential_degree> const& potential, double max_energy)
+      :  m_max_energy{max_energy}, m_step{1. / (std::sqrt(m_max_energy))}, m_potential{potential}
   {
     auto coeff = m_potential.coefficients;
     coeff(0) -= m_max_energy;
