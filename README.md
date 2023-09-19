@@ -4,7 +4,7 @@
 
 Follow these steps to compile the project:
 
-1. **Docker**: If you haven't already, clone this repository to your local machine using Git:
+1. **Docker**:
 
   ```bash
   docker build - < docker/Dockerfile
