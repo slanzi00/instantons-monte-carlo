@@ -1,42 +1,90 @@
 #define HOT_START 1.4
 
+#include <format>
+#include <fstream>
 #include <iostream>
 
-#include "lattice.hpp"
 #include "metropolis.hpp"
+
+void print_correlators_csv(std::shared_ptr<Lattice> lattice,
+                           std::shared_ptr<Correlators> correlators)
+{
+  std::ofstream corr_f("data/correlators_log_derivative.csv");
+  corr_f << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
+            "dlog_der_c2,log_der_c3,dlog_der_c3\n";
+  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+    corr_f << std::format(
+        "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
+        "{:4.12f},{:4.12f},{:4.12f}\n",
+        lattice->euclidean_time[i],
+        correlators->correlators(0, i),
+        correlators->correlators_errors(0, i),
+        correlators->correlators(1, i),
+        correlators->correlators_errors(1, i),
+        correlators->correlators(2, i),
+        correlators->correlators_errors(2, i),
+        correlators->log_derivative(0, i),
+        correlators->log_derivative_error(0, i),
+        correlators->log_derivative(1, i),
+        correlators->log_derivative_error(1, i),
+        correlators->log_derivative(2, i),
+        correlators->log_derivative_error(2, i));
+  }
+}
+
+void print_correlators_cool_csv(std::shared_ptr<Lattice> lattice,
+                                std::shared_ptr<Correlators> correlators_cool)
+{
+  std::ofstream corr_cool_f("data/correlators_log_derivative_cool.csv");
+  corr_cool_f
+      << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
+         "dlog_der_c2,log_der_c3,dlog_der_c3\n";
+  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+    corr_cool_f << std::format(
+        "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
+        "{:4.12f},{:4.12f},{:4.12f}\n",
+        lattice->euclidean_time[i],
+        correlators_cool->correlators(0, i),
+        correlators_cool->correlators_errors(0, i),
+        correlators_cool->correlators(1, i),
+        correlators_cool->correlators_errors(1, i),
+        correlators_cool->correlators(2, i),
+        correlators_cool->correlators_errors(2, i),
+        correlators_cool->log_derivative(0, i),
+        correlators_cool->log_derivative_error(0, i),
+        correlators_cool->log_derivative(1, i),
+        correlators_cool->log_derivative_error(1, i),
+        correlators_cool->log_derivative(2, i),
+        correlators_cool->log_derivative_error(2, i));
+  }
+}
+
+void print_instanton_density_csv(std::array<uint32_t, sv::n_sweeps_cool> const& instantons_density,
+                                 std::array<double, sv::n_sweeps_cool> const& actions)
+{
+  std::ofstream id_f("data/instanton_density.csv");
+  id_f << "n_cool,n_inst,action\n";
+  for (size_t i = 0; i != sv::n_sweeps_cool; ++i) {
+    id_f << std::format("{},{},{}\n", i, instantons_density[i], actions[i]);
+  }
+}
 
 int main()
 {
   using namespace boost::histogram;
   AnharmonicPotential potential{HOT_START};
-  auto lattice = std::make_shared<Lattice<800>>(0.05, potential);
-  auto correlators = std::make_shared<Correlators<30>>();
-  auto correlators_cool = std::make_shared<Correlators<30>>();
-  correlators->normalization = 1000000. * 200.;
-  correlators_cool->normalization = 100000. * 40;
+  auto lattice = std::make_shared<Lattice>(potential);
+  auto correlators = std::make_shared<Correlators>();
+  auto correlators_cool = std::make_shared<Correlators>();
   Metropolis metropolis_evolver{
-      lattice, correlators, correlators_cool, make_histogram(axis::regular<>(500, -3., 3., "x"))};
+      lattice,
+      correlators,
+      correlators_cool,
+      make_histogram(
+          axis::regular<>(sv::n_histogram_bins, sv::x_min_histogram, sv::x_max_histogram, "x"))};
 
-  metropolis_evolver.evolve_lattice<100000, 200>();
-  // for (size_t j = 0; j != 29; ++j) {
-  //   std::cout << lattice->euclidean_time[j] << '\t' << correlators->log_derivative(1, j, 0.05)
-  //             << '\t' << correlators->log_derivative_error(1, j, 0.05) << '\n';
-  //   // std::cout << lattice->euclidean_time[j] << '\t' << correlators->correlators(1, j) << '\n';
-  //   // std::cout << lattice->euclidean_time[j] << '\t' << correlators->correlators(2, j) << '\n';
-  // }
-
-  // print_log_der(correlators->correlators);
-
-  // auto h = metropolis_evolver.probability_histogram();
-  // Correlators<30> pos_correlators;
-  // pos_correlators(lattice->positions);
-
-  // for (auto x : h) {
-  //   std::cout << x << '\n';
-  // }
-  
-  auto id = metropolis_evolver.instanton_density();
-  for (int i{0}; i != 200; ++i) {
-    std::cout << i << '\t' << id.actions[i] / id.n_instantons[i] << '\n';
-  }
+  metropolis_evolver.evolve_lattice();
+  print_correlators_csv(lattice, correlators);
+  print_correlators_csv(lattice, correlators_cool);
+  print_instanton_density_csv(metropolis_evolver.number_instantons(), metropolis_evolver.actions());
 }
