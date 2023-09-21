@@ -66,22 +66,31 @@ void Metropolis::evolve_lattice(bool make_cooling)
         m_n_instantons[i_cool] += calculate_number_instantons();
         m_actions[i_cool] += m_lattice->calculate_complete_action();
         one_sweep_monte_carlo(EvolutionType::Cooling, gaussian_step, probability);
-        if (i_cool % sv::take_corr_meas_every == 0) {
-          m_correlators_cool->fill_correlators(m_lattice->positions, m_gen);
-        }
       }
+      // correlation functions after cooling
+      m_correlators_cool->fill_correlators(m_lattice->positions, m_gen);
       m_lattice->positions = m_positions_storage;
     }
     one_sweep_monte_carlo(EvolutionType::Normal, gaussian_step, probability);
   }
   m_correlators->normalize_correlators();
   m_correlators->calculate_errors();
-  m_correlators_cool->normalize_correlators();
-  m_correlators_cool->calculate_errors();
+  m_correlators_cool->normalize_correlators_cool();
+  m_correlators_cool->calculate_errors_cool();
 }
 
 histogram Metropolis::probability_histogram()
 {
+  double norm = 0.,
+         bin_width = (sv::x_max_histogram - sv::x_min_histogram) / (double)sv::n_histogram_bins;
+
+  for (auto bin : m_histogram) {
+    norm += bin * bin_width;
+  }
+
+  for (auto bin : m_histogram) {
+    bin /= norm;
+  }
   return m_histogram;
 }
 

@@ -6,13 +6,25 @@
 
 #include "metropolis.hpp"
 
+void print_histogram_csv(histogram const& histogram)
+{
+  std::ofstream histo_f("data/probability_histogram.csv");
+  auto bin_width = (sv::x_max_histogram - sv::x_min_histogram) / (double)sv::n_histogram_bins;
+  auto x_i = 0.;
+  histo_f << "x,probability\n";
+  for (auto i : histogram) {
+    histo_f << std::format("{:4.12f},{:4.12f}\n", x_i, (double)i);
+    x_i += bin_width;
+  }
+}
+
 void print_correlators_csv(std::shared_ptr<Lattice> lattice,
                            std::shared_ptr<Correlators> correlators)
 {
   std::ofstream corr_f("data/correlators_log_derivative.csv");
   corr_f << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
             "dlog_der_c2,log_der_c3,dlog_der_c3\n";
-  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+  for (size_t i = 0; i != sv::n_correlator_points - 1; ++i) {
     corr_f << std::format(
         "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
         "{:4.12f},{:4.12f},{:4.12f}\n",
@@ -39,7 +51,7 @@ void print_correlators_cool_csv(std::shared_ptr<Lattice> lattice,
   corr_cool_f
       << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
          "dlog_der_c2,log_der_c3,dlog_der_c3\n";
-  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+  for (size_t i = 0; i != sv::n_correlator_points - 1; ++i) {
     corr_cool_f << std::format(
         "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
         "{:4.12f},{:4.12f},{:4.12f}\n",
@@ -65,7 +77,7 @@ void print_instanton_density_csv(std::array<uint32_t, sv::n_sweeps_cool> const& 
   std::ofstream id_f("data/instanton_density.csv");
   id_f << "n_cool,n_inst,action\n";
   for (size_t i = 0; i != sv::n_sweeps_cool; ++i) {
-    id_f << std::format("{},{},{}\n", i, instantons_density[i], actions[i]);
+    id_f << std::format("{},{},{:6.1f}\n", i, instantons_density[i], actions[i]);
   }
 }
 
@@ -84,7 +96,8 @@ int main()
           axis::regular<>(sv::n_histogram_bins, sv::x_min_histogram, sv::x_max_histogram, "x"))};
 
   metropolis_evolver.evolve_lattice();
+  print_histogram_csv(metropolis_evolver.probability_histogram());
   print_correlators_csv(lattice, correlators);
-  print_correlators_csv(lattice, correlators_cool);
+  print_correlators_cool_csv(lattice, correlators_cool);
   print_instanton_density_csv(metropolis_evolver.number_instantons(), metropolis_evolver.actions());
 }

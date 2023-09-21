@@ -4,6 +4,9 @@
 double normalization = (sv::n_sweeps * static_cast<double>(sv::n_correlator_meas)) /
                        static_cast<double>(sv::take_corr_meas_every);
 
+double normalization_cool = (sv::n_sweeps * static_cast<double>(sv::n_correlator_meas)) /
+                            static_cast<double>(sv::make_cool_every);
+
 // initialize data member
 Correlators::Correlators()
     : correlators{zeros(3, sv::n_correlator_points)}
@@ -42,6 +45,16 @@ void Correlators::normalize_correlators()
   }
 }
 
+void Correlators::normalize_correlators_cool()
+{
+  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+    for (size_t j : {0, 1, 2}) {
+      correlators(j, i) /= normalization_cool;
+      correlators_squared(j, i) /= normalization_cool;
+    }
+  }
+}
+
 void Correlators::calculate_errors()
 {
   for (size_t i = 0; i != sv::n_correlator_points; ++i) {
@@ -49,6 +62,17 @@ void Correlators::calculate_errors()
       double square_mean = correlators_squared(j, i);
       double mean_square = std::pow(correlators(j, i), 2);
       correlators_errors(j, i) = std::sqrt((square_mean - mean_square) / normalization);
+    }
+  }
+}
+
+void Correlators::calculate_errors_cool()
+{
+  for (size_t i = 0; i != sv::n_correlator_points; ++i) {
+    for (size_t j : {0, 1, 2}) {
+      double square_mean = correlators_squared(j, i);
+      double mean_square = std::pow(correlators(j, i), 2);
+      correlators_errors(j, i) = std::sqrt((square_mean - mean_square) / normalization_cool);
     }
   }
 }

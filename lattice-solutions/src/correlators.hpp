@@ -28,7 +28,9 @@ struct Correlators
   void fill_correlators(std::array<double, sv::n_lattice_points> const& positions,
                         std::mt19937 random_generator);
   void normalize_correlators();
+  void normalize_correlators_cool();
   void calculate_errors();
+  void calculate_errors_cool();
   double log_derivative(size_t correlator_row, size_t correlator_col);
   double log_derivative_error(size_t correlator_row, size_t correlator_col);
 };
