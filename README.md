@@ -4,14 +4,27 @@
 
 Follow these steps to compile the project:
 
-1. **Docker**:
+1. Install libraries and run the code with CMake:
 
-  ```bash
-  docker build - < docker/Dockerfile
-  ```
+```cppcheck``` and ```libboost-dev``` (Boost C++ libraries) are required. Choose which of the two subproject
+you want build  (```schroediger-solver``` or ```lattice-solution```) and build:
+ ```bash
+ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+ build/scrouedinger-solver(or build/lattice-solutions)
+```
 
-choose the schroediger-solver or lattice-solution directory and build with cmake:
+2. Using **Docker**: 
 
+build the docker image:
+ ```bash
+docker build - < docker/Dockerfile
+```
+open the image and include the directories (example of command):
+ ```bash
+docker run -it -v ~/Desktop/instantons-monte-carlo:/workspace sha256:(...)
+# insert the full name of the container
+```
+then choose project and build with CMake
  ```bash
  cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
 ```
