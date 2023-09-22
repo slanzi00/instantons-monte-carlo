@@ -1,6 +1,7 @@
 #ifndef METROPOLIS_HPP
 #define METROPOLIS_HPP
 
+#include <iostream>
 #include <memory>
 
 #include <boost/histogram.hpp>

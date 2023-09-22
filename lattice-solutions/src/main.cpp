@@ -9,12 +9,9 @@
 void print_histogram_csv(histogram const& histogram)
 {
   std::ofstream histo_f("data/probability_histogram.csv");
-  auto bin_width = (sv::x_max_histogram - sv::x_min_histogram) / (double)sv::n_histogram_bins;
-  auto x_i = 0.;
-  histo_f << "x,probability\n";
+  histo_f << "probability\n";
   for (auto i : histogram) {
-    histo_f << std::format("{:4.12f},{:4.12f}\n", x_i, (double)i);
-    x_i += bin_width;
+    histo_f << std::format("{}\n",(double)i);
   }
 }
 
@@ -74,7 +71,7 @@ void print_correlators_cool_csv(std::shared_ptr<Lattice> lattice,
 void print_instanton_density_csv(std::array<uint32_t, sv::n_sweeps_cool> const& instantons_density,
                                  std::array<double, sv::n_sweeps_cool> const& actions)
 {
-  std::ofstream id_f("data/instanton_density.csv");
+  std::ofstream id_f("data/instanton_density_16.csv");
   id_f << "n_cool,n_inst,action\n";
   for (size_t i = 0; i != sv::n_sweeps_cool; ++i) {
     id_f << std::format("{},{},{:6.1f}\n", i, instantons_density[i], actions[i]);
