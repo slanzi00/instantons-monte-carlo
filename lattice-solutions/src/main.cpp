@@ -4,6 +4,9 @@
 #include <fstream>
 #include <iostream>
 
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+
 #include "metropolis.hpp"
 
 void print_histogram_csv(histogram const& histogram)
@@ -11,7 +14,7 @@ void print_histogram_csv(histogram const& histogram)
   std::ofstream histo_f("data/probability_histogram.csv");
   histo_f << "probability\n";
   for (auto i : histogram) {
-    histo_f << std::format("{}\n",(double)i);
+    histo_f << fmt::format("{}\n",(double)i);
   }
 }
 
@@ -22,7 +25,7 @@ void print_correlators_csv(std::shared_ptr<Lattice> lattice,
   corr_f << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
             "dlog_der_c2,log_der_c3,dlog_der_c3\n";
   for (size_t i = 0; i != sv::n_correlator_points - 1; ++i) {
-    corr_f << std::format(
+    corr_f << fmt::format(
         "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
         "{:4.12f},{:4.12f},{:4.12f}\n",
         lattice->euclidean_time[i],
@@ -49,7 +52,7 @@ void print_correlators_cool_csv(std::shared_ptr<Lattice> lattice,
       << "time,corr_1,dcorr_1,corr_2,d_corr2,corr_3,dcorr_3,log_der_c1,dlog_der_c1,log_der_c2,"
          "dlog_der_c2,log_der_c3,dlog_der_c3\n";
   for (size_t i = 0; i != sv::n_correlator_points - 1; ++i) {
-    corr_cool_f << std::format(
+    corr_cool_f << fmt::format(
         "{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},"
         "{:4.12f},{:4.12f},{:4.12f}\n",
         lattice->euclidean_time[i],
@@ -74,7 +77,7 @@ void print_instanton_density_csv(std::array<uint32_t, sv::n_sweeps_cool> const& 
   std::ofstream id_f("data/instanton_density_16.csv");
   id_f << "n_cool,n_inst,action\n";
   for (size_t i = 0; i != sv::n_sweeps_cool; ++i) {
-    id_f << std::format("{},{},{:6.1f}\n", i, instantons_density[i], actions[i]);
+    id_f << fmt::format("{},{},{:6.1f}\n", i, instantons_density[i], actions[i]);
   }
 }
 

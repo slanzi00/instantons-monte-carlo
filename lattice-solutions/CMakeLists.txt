@@ -4,7 +4,7 @@ project(lattice-solutions VERSION 0.1)
 
 include(FetchContent)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_CPPCHECK "cppcheck")
@@ -19,12 +19,12 @@ string(APPEND CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -fconcepts")
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
 string(APPEND CMAKE_EXE_LINKER_FLAGS_DEBUG " -fsanitize=address -fno-omit-frame-pointer")
 
-find_package(OpenMP)
 find_package(Boost REQUIRED)
+find_package(fmt REQUIRED)
 
 add_executable(lattice-solutions ${SOURCES})
-target_link_libraries(lattice-solutions PRIVATE OpenMP::OpenMP_CXX)
 target_link_libraries(lattice-solutions PRIVATE Boost::boost)
+target_link_libraries(lattice-solutions PRIVATE fmt::fmt)
 
 add_custom_command(
     TARGET lattice-solutions POST_BUILD

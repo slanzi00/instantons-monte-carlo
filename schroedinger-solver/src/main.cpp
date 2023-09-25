@@ -9,14 +9,15 @@
 void print_eigens_csv(auto const& positions, auto const& eigenvalues, auto const& wavefuncions)
 {
   std::ofstream eigens_f("data/eigenvalues_eigenfunctions.csv");
-  eigens_f << "positions,eigenvalues,eigenfuntion(0),eigenfuncion(1),eigenfunction(2)\n";
+  eigens_f << "positions,eigenvalues,eigenfunction0,eigenfunction1,eigenfunction2,eigenfunction3\n";
   for (auto i = 0; i != eigenvalues.size(); ++i) {
-    eigens_f << std::format("{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f}\n",
+    eigens_f << std::format("{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f},{:4.12f}\n",
                             positions[i],
                             eigenvalues[i],
                             -wavefuncions(i, 0),
                             wavefuncions(i, 1),
-                            wavefuncions(i, 2));
+                            wavefuncions(i, 2),
+                            wavefuncions(i, 3));
   }
 }
 
@@ -27,8 +28,7 @@ void print_correlators_csv(auto& solver,
                            auto const& exapole)
 {
   std::ofstream corr_f("data/correlators_log_derivative.csv");
-  corr_f << "time,<x(τ)x(0)>,<x(τ)²x(0)²>,<x(τ)³x(0)³>,dlog<x(τ)x(0)>/dτ,dlog<x(τ)²x(0)²>/"
-            "dτ,dlog<x(τ)³x(0)³>/dτ\n";
+  corr_f << "time,corr_1,corr_2,corr_3,log_der_1,log_der_2,log_der_3\n";
   size_t n_tau = 200;
   double tau_max = 1.5;
   double tau = 0.;
