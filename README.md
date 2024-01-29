@@ -17,11 +17,11 @@ you want build  (```schroediger-solver``` or ```lattice-solution```) and build:
 
 build the docker image:
  ```bash
-docker build - < docker/Dockerfile
+docker build -t instantons_docker docker
 ```
 open the image and include the directories (example of command):
  ```bash
-docker run -it -v ~/Desktop/instantons-monte-carlo:/workspace sha256:(...)
+docker run -it -v $(pwd):/workspace instantons_docker docker
 # insert the full name of the container
 ```
 then choose project and build with CMake
